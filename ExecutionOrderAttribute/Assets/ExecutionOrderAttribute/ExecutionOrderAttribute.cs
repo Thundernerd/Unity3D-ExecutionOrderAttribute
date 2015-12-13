@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 #if UNITY_EDITOR
 using System.IO;
 using UnityEditor;
@@ -15,35 +16,23 @@ sealed class ExecutionOrderAttribute : Attribute {
     }
 
 #if UNITY_EDITOR
-    private const string PREFS_KEY = "_executionOrderUpdated";
     private const string PB_TITLE = "Updating Execution Order";
     private const string PB_MESSAGE = "Hold on to your butt, Cap'n!";
     private const string ERR_MESSAGE = "Unable to locate and set execution order for {0}";
 
     [InitializeOnLoadMethod]
     private static void Execute() {
-        if ( EditorPrefs.GetBool( PREFS_KEY, false ) ) {
-            EditorPrefs.DeleteKey( PREFS_KEY );
-            return;
-        }
-
         var type = typeof( ExecutionOrderAttribute );
         var assembly = type.Assembly;
         var types = assembly.GetTypes();
+        var scripts = new Dictionary<MonoScript, ExecutionOrderAttribute>();
 
         var progress = 0f;
         var step = 1f / types.Length;
 
         foreach ( var item in types ) {
-            var cancelled = EditorUtility.DisplayCancelableProgressBar( PB_TITLE, PB_MESSAGE, progress );
-            progress += step;
-
-            if ( cancelled ) {
-                break;
-            }
-
             var attributes = item.GetCustomAttributes( type, false );
-            if ( attributes.Length == 0 ) continue;
+            if ( attributes.Length != 1 ) continue;
             var attribute = attributes[0] as ExecutionOrderAttribute;
 
             var asset = "";
@@ -66,9 +55,25 @@ sealed class ExecutionOrderAttribute : Attribute {
             }
 
             var script = AssetDatabase.LoadAssetAtPath<MonoScript>( AssetDatabase.GUIDToAssetPath( asset ) );
-            if ( MonoImporter.GetExecutionOrder( script ) != attribute.ExecutionOrder ) {
-                MonoImporter.SetExecutionOrder( script, attribute.ExecutionOrder );
-                EditorPrefs.SetBool( PREFS_KEY, true );
+            scripts.Add( script, attribute );
+        }
+
+        var changed = false;
+        foreach ( var item in scripts ) {
+            if ( MonoImporter.GetExecutionOrder( item.Key ) != item.Value.ExecutionOrder ) {
+                changed = true;
+                break;
+            }
+        }
+
+        if ( changed ) {
+            foreach ( var item in scripts ) {
+                var cancelled = EditorUtility.DisplayCancelableProgressBar( PB_TITLE, PB_MESSAGE, progress );
+                progress += step;
+
+                if ( MonoImporter.GetExecutionOrder( item.Key ) != item.Value.ExecutionOrder ) {
+                    MonoImporter.SetExecutionOrder( item.Key, item.Value.ExecutionOrder );
+                }
             }
         }
 
