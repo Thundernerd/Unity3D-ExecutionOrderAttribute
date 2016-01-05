@@ -2,7 +2,7 @@
 using System.Collections;
 
 [ExecutionOrder( -50 )]
-public class Scriptable : MonoBehaviour {
+public class Scriptable : ScriptableObject {
 
     // Use this for initialization
     void Start() {

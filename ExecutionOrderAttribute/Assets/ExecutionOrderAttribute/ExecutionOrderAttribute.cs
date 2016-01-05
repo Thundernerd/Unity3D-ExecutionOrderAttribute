@@ -74,6 +74,8 @@ sealed class ExecutionOrderAttribute : Attribute {
                 if ( MonoImporter.GetExecutionOrder( item.Key ) != item.Value.ExecutionOrder ) {
                     MonoImporter.SetExecutionOrder( item.Key, item.Value.ExecutionOrder );
                 }
+
+                if ( cancelled ) break;
             }
         }
 
